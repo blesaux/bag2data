@@ -88,7 +88,15 @@ public:
     try
       {
         // encoding is deduced from the image message
-        cv_ptr = cv_bridge::toCvShare( msg ); //sensor_msgs::image_encodings::BGR8 );
+        // cv_ptr = cv_bridge::toCvShare( msg ); //sensor_msgs::image_encodings::BGR8 );
+        if (sensor_msgs::image_encodings::isColor(msg->encoding))
+          cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::BGR8);
+        else
+          cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::MONO8);
+        // if ( !flux.compare("rgb") )
+          // cv_ptr = cv_bridge::toCvShare( msg, sensor_msgs::image_encodings::BGR8 );
+        // else
+          // cv_ptr = cv_bridge::toCvShare( msg ); //sensor_msgs::image_encodings::BGR8 );
       }
     catch( cv_bridge::Exception& e )
       {
