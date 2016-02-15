@@ -7,6 +7,9 @@
 #include <ros/ros.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
+#include <pcl/common/common.h>
+#include <pcl/common/centroid.h>
+#include <pcl/common/transforms.h>
 
 // Messages
 #include "sensor_msgs/PointCloud.h"
@@ -54,6 +57,8 @@ private:
   float _leafSize;
 
   tf::TransformListener *tf_listener;
+
+  tf::Vector3 firstTranslation;
 
 public:
   /**
@@ -154,12 +159,18 @@ public:
             transform.getRotation().getAxis()[0], transform.getRotation().getAxis()[1], 
             transform.getRotation().getAxis()[2], transform.getRotation().getAngle() );
 
+   if (_cloudCount == 0) { // init collected cloud offset = 1st origin translation
+     firstTranslation = transform.getOrigin();
+   }
+   transform.setOrigin( transform.getOrigin() - firstTranslation );
+
    pcl::PointCloud<pcl::PointXYZ>::Ptr registeredCloudPtr(new pcl::PointCloud<pcl::PointXYZ>);
-   pcl_ros::transformPointCloud( target_frame, *cloudPtr, *registeredCloudPtr, *tf_listener);
+   // pcl_ros::transformPointCloud( target_frame, *cloudPtr, *registeredCloudPtr, *tf_listener);
+   pcl_ros::transformPointCloud( *cloudPtr, *registeredCloudPtr, transform);
 
    // get better visualization (around the gravity center ??)
    // get one point (or transform origin ?) and substract it -> transform with identity rotation and one point translation
-   // std::cout << "transform origin = (" << transform.getOrigin().x() << ", " << transform.getOrigin().y() <<  ", " << transform.getOrigin().z() << ")." << std::endl;
+
 
    // Concatenate new point cloud to the collected point-cloud
    cloudPtr = registeredCloudPtr;
@@ -193,7 +204,11 @@ public:
 
     try {
       cv_bridge::CvImageConstPtr cv_ptr;
-      cv_ptr = cv_bridge::toCvShare(msg);
+      // cv_ptr = cv_bridge::toCvShare(msg);
+      if (sensor_msgs::image_encodings::isColor(msg->encoding))
+        cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::BGR8);
+      else
+        cv_ptr = cv_bridge::toCvShare(msg);
 
       // imshow expects a float value to lie in [0,1], so we need to normalize
       // for visualization purposes.
@@ -210,6 +225,20 @@ public:
     }
   }
 
+  void demeanCloud() {
+     Eigen::Vector4f centroid;
+     pcl::compute3DCentroid( *collectedCloudPtr, centroid );
+     std::cout << " centroid = (" << centroid[0] << ", " << centroid[1] << ", " << centroid[2] << ")." << std::endl;
+     tf::Vector3 meanCloud = tf::Vector3( centroid[0], centroid[1], centroid[2]);
+
+     // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz_demean (new pcl::PointCloud<pcl::PointXYZ>);
+     // pcl::demeanPointCloud<pcl::PointXYZ> (collectedCloudPtr, centroid,  cloud_xyz_demean);
+
+     tf::StampedTransform transform;
+     transform.setOrigin( - meanCloud );
+     pcl_ros::transformPointCloud( *collectedCloudPtr, *collectedCloudPtr, transform);
+
+  }
 
 
   /**
@@ -312,6 +341,7 @@ int main(int argc, char **argv)
   }
 
   // save collected point cloud before exiting
+  pointCloudCollector.demeanCloud();
   pointCloudCollector.saveCloud();
 
   // kill view windows if any
