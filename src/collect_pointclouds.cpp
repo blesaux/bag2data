@@ -268,6 +268,20 @@ public:
 
 using namespace std ;
 
+void helpUsage(int argc, char **argv) {
+    // std::cout is capable of quasi-multi-line statements, like so:
+    std::cout << "Usage: rosrun bag2data collect_pointclouds [options]\n"
+        "Collect point-clouds from a ROS bag in a single cloud\n"
+        "\nOptions:\n"
+        "-h (--help)\tPrint this message and exit\n"
+        "--view-image\tDisplay image frames while collecting clouds\n"
+        "--view-depth\tDisplay depth frames while collecting clouds\n"
+        "--n-frames\tNumber of clouds to collect (default: all)\n"
+        "--voxel-size\tSize of voxel grid for subsampling points (default: 0.1)\n"
+        "\n";
+}
+
+
 int main(int argc, char **argv)
 {
   // program parameters set to default values
@@ -283,7 +297,10 @@ int main(int argc, char **argv)
   // deal with arguments
   std::vector <std::string> sources;
   for (int i = 1; i < argc; ++i) {
-    if (std::string(argv[i]) == "--view-depth") {
+    if ((std::string(argv[i]) == "--help")||(std::string(argv[i]) == "-h")) {
+      helpUsage( argc, argv );
+      return 2;
+    } else    if (std::string(argv[i]) == "--view-depth") {
       flagViewDepth=true;
     } else if (std::string(argv[i]) == "--view-image") {
       flagViewImage=true;
@@ -318,6 +335,8 @@ int main(int argc, char **argv)
     for (unsigned i=0; i<sources.size(); i++)
       std::cout << ' ' << sources.at(i);
     std::cout << '\n';
+    helpUsage( argc, argv );
+    return 2;
   }
 
   ros::init(argc, argv, "pointcloud_collector");
